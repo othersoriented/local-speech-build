@@ -9,3 +9,7 @@ Standard public Linux runner, manual invocation only, read-only workflow token, 
 Build compatibility: the pinned compiler rejects LLVM bitcode named .a. Source Makefile intermediate targets use .bc instead; existing static archive inputs are unchanged. This is a source build-rule correction, not a binary patch.
 
 The builder's library layout is taken verbatim from ccoreilly/vosk-browser source revision 4b8eb257503108d96819854d3984372903c2259e src/Makefile (LIBS block), because the fork otherwise references nonexistent .a Kaldi intermediates.
+
+## Current result
+
+No usable artifact has been produced. Run 44461958599 reaches linking with DYNAMIC_EXECUTION=0 after the source Makefile compatibility corrections. It fails on undefined exported `_f_init` and reports unresolved Kaldi RNNLM / Fortran runtime symbols. These have not been suppressed, stubbed or patched in generated binaries. The fork and ccoreilly builder are not established as compatible. Next work must obtain a matching, provenance-verified toolchain/library set or build that set from pinned official sources before attempting runtime validation. No release has been created.
