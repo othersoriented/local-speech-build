@@ -20,7 +20,10 @@ jobs:
           python3 - <<'PYFIX'
           from pathlib import Path
           p=Path('src/Makefile')
+          import urllib.request
+          reference=urllib.request.urlopen('https://raw.githubusercontent.com/ccoreilly/vosk-browser/4b8eb257503108d96819854d3984372903c2259e/src/Makefile').read().decode()
           source=p.read_text()
+          source=source[:source.index('LIBS =')]+reference[reference.index('LIBS ='):reference.index('SRC =')]+source[source.index('SRC ='):]
           before,after=source.split('OBJ :=',1)
           p.write_text(before+'OBJ :='+after.replace('.a','.bc'))
           PYFIX

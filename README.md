@@ -7,3 +7,5 @@ The official upstream ccoreilly builder tag 0.0.6 is resolved to sha256:a71beab3
 Standard public Linux runner, manual invocation only, read-only workflow token, no secrets, container network disabled during compilation, exact public tool versions, one-day artifact retention. No application source, user data or deploy credentials. Artifacts are build outputs, not a release. WebAssembly CSP permission is still needed separately. No recognition model is bundled.
 
 Build compatibility: the pinned compiler rejects LLVM bitcode named .a. Source Makefile intermediate targets use .bc instead; existing static archive inputs are unchanged. This is a source build-rule correction, not a binary patch.
+
+The builder's library layout is taken verbatim from ccoreilly/vosk-browser source revision 4b8eb257503108d96819854d3984372903c2259e src/Makefile (LIBS block), because the fork otherwise references nonexistent .a Kaldi intermediates.
