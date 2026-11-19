@@ -17,6 +17,13 @@ jobs:
           test -f COPYING
           grep -q 'Apache License' COPYING
           printf '\nLINK_FLAGS += -s DYNAMIC_EXECUTION=0\n' >> src/Makefile
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          p=Path('src/Makefile')
+          source=p.read_text()
+          before,after=source.split('OBJ :=',1)
+          p.write_text(before+'OBJ :='+after.replace('.a','.bc'))
+          PYFIX
       - name: Build in digest-pinned official upstream container
         run: |
           docker pull ghcr.io/ccoreilly/vosk-wasm-builder@sha256:a71beab353712ad6c052d07f9665bee748fd0109bf331c77d988f308ebb6de9a
