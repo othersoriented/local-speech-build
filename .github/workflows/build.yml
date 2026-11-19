@@ -1,0 +1,48 @@
+name: Manual no-eval recognizer build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Fetch pinned public Apache-2.0 source
+        run: |
+          git clone https://github.com/lichess-org/vosk-browser.git upstream
+          cd upstream
+          git checkout 50a6347c5167f95c458ffde0fd064569ae108ddf
+          git submodule update --init --recursive
+          test -f COPYING
+          grep -q 'Apache License' COPYING
+          printf '\nLINK_FLAGS += -s DYNAMIC_EXECUTION=0\n' >> src/Makefile
+      - name: Build in digest-pinned official upstream container
+        run: |
+          docker pull ghcr.io/ccoreilly/vosk-wasm-builder@sha256:a71beab353712ad6c052d07f9665bee748fd0109bf331c77d988f308ebb6de9a
+          docker run --rm --network none -v "$PWD/upstream:/io" -w /io ghcr.io/ccoreilly/vosk-wasm-builder@sha256:a71beab353712ad6c052d07f9665bee748fd0109bf331c77d988f308ebb6de9a make -C src
+      - name: Bundle with pinned public tools and check no JS generation
+        run: |
+          cd upstream/lib
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false --save-exact esbuild@0.25.5 typescript@5.8.3 uuid@11.1.0 @types/uuid@8.3.4 acorn@8.14.1
+          node build.mjs
+          node --input-type=module <<'JS'
+          import {parse} from 'acorn';
+          import fs from 'node:fs';
+          for(const file of ['dist/vosk.worker.js','dist/vosk.wasm.js']){
+            const ast=parse(fs.readFileSync(file,'utf8'),{ecmaVersion:'latest',sourceType:'module'});
+            function visit(n){if(!n||typeof n!=='object')return;if(['CallExpression','NewExpression'].includes(n.type)&&n.callee?.type==='Identifier'&&['eval','Function'].includes(n.callee.name))throw Error('Dynamic execution: '+file);for(const value of Object.values(n)){if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value);}}
+            visit(ast);
+          }
+          JS
+          mkdir -p ../../artifact
+          cp dist/vosk.worker.js dist/vosk.wasm.js dist/vosk.wasm ../../artifact/
+          cp ../COPYING ../NOTICE ../../artifact/
+          cd ../../artifact
+          sha256sum * > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: local-recognizer-no-dynamic-js
+          path: artifact/
+          retention-days: 1
+          if-no-files-found: error
