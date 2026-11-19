@@ -13,3 +13,7 @@ The builder's library layout is taken verbatim from ccoreilly/vosk-browser sourc
 ## Current result
 
 No usable artifact has been produced. Run 44461958599 reaches linking with DYNAMIC_EXECUTION=0 after the source Makefile compatibility corrections. It fails on undefined exported `_f_init` and reports unresolved Kaldi RNNLM / Fortran runtime symbols. These have not been suppressed, stubbed or patched in generated binaries. The fork and ccoreilly builder are not established as compatible. Next work must obtain a matching, provenance-verified toolchain/library set or build that set from pinned official sources before attempting runtime validation. No release has been created.
+
+## Bounded matching-source attempt
+
+The current workflow now uses ccoreilly/vosk-browser at 4b8eb257503108d96819854d3984372903c2259e with its own digest-pinned 0.0.6 builder, without fork source or compatibility patches. Recursive submodule pins are recorded in the artifact. Build-time flags DYNAMIC_EXECUTION=0, SINGLE_FILE=0, EXPORT_ES6=1 and USE_ES6_IMPORT_META=0 produce a separately served WASM/ES-module core without modifying generated code. This core has a different browser contract from the previous prototype; output must undergo actual grammar/model/runtime and worker-only-CSP checks before any use. No claim of browser compatibility yet.

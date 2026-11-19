@@ -10,45 +10,32 @@ jobs:
     steps:
       - name: Fetch pinned public Apache-2.0 source
         run: |
-          git clone https://github.com/lichess-org/vosk-browser.git upstream
+          git clone https://github.com/ccoreilly/vosk-browser.git upstream
           cd upstream
-          git checkout 50a6347c5167f95c458ffde0fd064569ae108ddf
+          git checkout 4b8eb257503108d96819854d3984372903c2259e
           git submodule update --init --recursive
           test -f COPYING
           grep -q 'Apache License' COPYING
-          printf '\nLINK_FLAGS += -s DYNAMIC_EXECUTION=0\n' >> src/Makefile
-          python3 - <<'PYFIX'
-          from pathlib import Path
-          p=Path('src/Makefile')
-          import urllib.request
-          reference=urllib.request.urlopen('https://raw.githubusercontent.com/ccoreilly/vosk-browser/4b8eb257503108d96819854d3984372903c2259e/src/Makefile').read().decode()
-          source=p.read_text()
-          source=source[:source.index('LIBS =')]+reference[reference.index('LIBS ='):reference.index('SRC =')]+source[source.index('SRC ='):]
-          before,after=source.split('OBJ :=',1)
-          p.write_text(before+'OBJ :='+after.replace('.a','.bc'))
-          PYFIX
+          git submodule status --recursive > SOURCE-PINS.txt
+          printf '\nLINK_FLAGS += -s DYNAMIC_EXECUTION=0 -s SINGLE_FILE=0 -s EXPORT_ES6=1 -s USE_ES6_IMPORT_META=0\n' >> src/Makefile
       - name: Build in digest-pinned official upstream container
         run: |
           docker pull ghcr.io/ccoreilly/vosk-wasm-builder@sha256:a71beab353712ad6c052d07f9665bee748fd0109bf331c77d988f308ebb6de9a
           docker run --rm --network none -v "$PWD/upstream:/io" -w /io ghcr.io/ccoreilly/vosk-wasm-builder@sha256:a71beab353712ad6c052d07f9665bee748fd0109bf331c77d988f308ebb6de9a make -C src
-      - name: Bundle with pinned public tools and check no JS generation
+      - name: Verify generated module has no JS dynamic execution
         run: |
-          cd upstream/lib
-          npm install --ignore-scripts --no-audit --no-fund --package-lock=false --save-exact esbuild@0.25.5 typescript@5.8.3 uuid@11.1.0 @types/uuid@8.3.4 acorn@8.14.1
-          node build.mjs
+          mkdir -p artifact
+          cp upstream/build/release/vosk.js upstream/build/release/vosk.wasm artifact/
+          cp upstream/COPYING upstream/NOTICE upstream/SOURCE-PINS.txt artifact/
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false --no-save acorn@8.14.1
           node --input-type=module <<'JS'
           import {parse} from 'acorn';
           import fs from 'node:fs';
-          for(const file of ['dist/vosk.worker.js','dist/vosk.wasm.js']){
-            const ast=parse(fs.readFileSync(file,'utf8'),{ecmaVersion:'latest',sourceType:'module'});
-            function visit(n){if(!n||typeof n!=='object')return;if(['CallExpression','NewExpression'].includes(n.type)&&n.callee?.type==='Identifier'&&['eval','Function'].includes(n.callee.name))throw Error('Dynamic execution: '+file);for(const value of Object.values(n)){if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value);}}
-            visit(ast);
-          }
+          const ast=parse(fs.readFileSync('artifact/vosk.js','utf8'),{ecmaVersion:'latest',sourceType:'module'});
+          function visit(n){if(!n||typeof n!=='object')return;if(['CallExpression','NewExpression'].includes(n.type)&&n.callee?.type==='Identifier'&&['eval','Function'].includes(n.callee.name))throw Error('Dynamic JavaScript execution');for(const value of Object.values(n)){if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value);}}
+          visit(ast);
           JS
-          mkdir -p ../../artifact
-          cp dist/vosk.worker.js dist/vosk.wasm.js dist/vosk.wasm ../../artifact/
-          cp ../COPYING ../NOTICE ../../artifact/
-          cd ../../artifact
+          cd artifact
           sha256sum * > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
